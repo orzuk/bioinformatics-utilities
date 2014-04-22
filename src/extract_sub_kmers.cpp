@@ -18,14 +18,6 @@
 #undef uthash_expand_fyi
 #define uthash_expand_fyi(tbl) printf("expanded to %d buckets\n", tbl->num_buckets)
 
-// Hash table structures 
-struct SeqData {
-	int seqpos;
-	word seq[MAX_L]; /* need to set the right length */
-	UT_hash_handle hh; /* makes this structure hashable */
-	int rand_int; /* temp for debug */
-};
-struct SeqData *hTable=NULL;
 
 
 
@@ -61,16 +53,12 @@ void mexFunction( int nlhs, mxArray *plhs[],
 	long *kmer_position_inds;
 	long *kmer_seq_inds; // = new long[total_num_kmers]; 
 	long input_position_flag=0; // flag saying 	
-	long debug_prints=0; 
+	long debug_prints=0; // default is no printing  
 
-	/**
-	printf("Start mex function\n");	
-	fflush(stdout);
-	printf("Size of Word=%ld (bits), Size of long=%ld\n", 8*sizeof(word), 8*sizeof(long)); // print size in bits
-	fflush(stdout);
-	**/
 
-	/*************************************************  Read Input **********************************************************************/
+	
+		
+		/*************************************************  Read Input **********************************************************************/
 	/* Check for proper number of arguments. Should be five 5 (last one is double flag) */
 	/* Input variables are: pwms, seqs, seqs_lens, -10, is_double */
 	if(nrhs < 5) {
@@ -83,8 +71,25 @@ void mexFunction( int nlhs, mxArray *plhs[],
 	L	= in[0]; 
 	in = mxGetPr(prhs[3]);   // Get the unique flag    	  
 	unique_flag = in[0]; 
-	in = mxGetPr(prhs[4]);   // Get the hash flag 	  
+	in = mxGetPr(prhs[4]);   // Get the hash flag. New! if length is 2, then second value is print flag!!!  	  
+
+
 	hash_flag = in[0]; 
+	long hash_flag_size = MAX(mxGetM(prhs[4]), mxGetN(prhs[4]));
+	if(hash_flag_size>1) // Get debug-print flag. 2nd argument of hash flag 
+		debug_prints = in[1];
+
+	/**/
+	if(debug_prints)
+	{
+		printf("Start mex function\n");	
+		fflush(stdout);
+		printf("Size of Word=%ld (bits), Size of long=%ld\n", 8*sizeof(word), 8*sizeof(long)); // print size in bits
+		fflush(stdout);
+	}
+	/**/
+
+
 
 	num_seqs = mxGetM(prhs[0]);    // Get number of different sequences (genes)
 	in_w = (word *)(mxCalloc(num_seqs, sizeof(word))); // allocate memory to read seqs
@@ -168,7 +173,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
 
 
 	// print to see that input came right
-	if(debug_prints)
+	if(debug_prints>1)
 	{
 		printf("Print input DNA: First Seq=%ld \n", seqs[0][0]); 
 		for(i=0; i<num_seqs; i++)
@@ -201,12 +206,20 @@ void mexFunction( int nlhs, mxArray *plhs[],
 	//	if(input_position_flag)
 	//		return;
 	//	else
+
+
+/** Dpn't skip the extract kmers part **/
 	extract_sub_kmers(L, seqs, seqs_lens, num_seqs, unique_flag, 
 		kmers, kmer_kmer_inds, kmer_seq_inds, kmer_position_inds, &num_unique_kmers, 
-		&num_sparse_matrix_elements, hash_flag, input_position_flag, num_coordinates);
+		&num_sparse_matrix_elements, hash_flag, input_position_flag, num_coordinates, debug_prints);
+/**/
 
 
-
+	if(debug_prints)
+	{
+		printf("Finished extract kmers\n"); 
+		fflush(stdout); 
+	}
 
 
 	/*
@@ -306,446 +319,3 @@ void mexFunction( int nlhs, mxArray *plhs[],
 //#endif // MEX_TO_MATLAB
 
 
-// free hash memory
-void delete_all() {
-	struct SeqData *current_user, *tmp;
-
-	HASH_ITER(hh, hTable, current_user, tmp) {
-		HASH_DEL(hTable,current_user);  /* delete; users advances to next */
-		free(current_user);            /* optional- if you want to free  */
-	}
-}
-
-
-
-// 
-// 
-////////////////////////////////////////////
-//
-//  function : extract_sub_kmers
-// 
-//  input    : L - length of kmers to extract (in nucleotides)
-//			   seqs - array of sequences (packed form 2-dimensional array)
-//			   seqs_lens - array of sequences lengths (num. of nucleotides in each sequence) 
-//			   unique_flag - if 'ON' keep a unique list of the kmers and save indices showing multiple occurances of each kmer
-//			
-//			   hash_flag - do we use hash in program? (currently always use hash)						   
-//			   input_position_flag - use only input positions and don't scan entire sequence
-//			   num_coordinates - ??? 
-//	
-//
-//  output   : kmers - array of unique kmers (in packed form 2-dim array) 
-//			   kmer_kmer_inds - array of indices for each kmer. Index in the list of unique kmers
-//			   kmer_seq_inds - array of indices for each kmer. Index is in the list of sequences (species) 
-//			   kmer_position_inds - array of indices for each kmer. Index is the position in the sequences (in each species)
-//			   num_unique_kmers - total number of unique kmers
-//			   num_sparse_matrix_elements - total number of (non-unique) kmers to be used in sparse matrix
-//
-//  purpose  : Scan sequences and extract all subsequences of length L. 
-//			   Use a hash table to speed the process.   
-//			   
-//
-////////////////////////////////////////////
-
-long extract_sub_kmers(long L, word *seqs[MAX_NUM_SEQS], long *seqs_lens, long num_seqs, long unique_flag, 
-					   word *kmers[MAX_L], long *kmer_kmer_inds, long *kmer_seq_inds, long *kmer_position_inds, 					   
-					   long *num_unique_kmers, long *num_sparse_matrix_elements, long hash_flag, 
-					   long input_position_flag, long num_coordinates)
-{
-	long i, j, k;
-	long i_seq, j_position; 
-	long num_kmers_enum;
-	long half_word_size = 4*sizeof(word);
-	long word_size = 2*half_word_size;
-
-	long num_words_in_kmer = ceil(double(L) / double(half_word_size)); 
-	long num_bytes_in_kmer = ceil(double(L) / 4.0); // temp - a bit wasteful but easier to make sure it's correct 
-	long num_bytes_in_kmer_ceil;
-
-	if(word_size == 32)
-	 num_bytes_in_kmer_ceil = 4 * ceil(double(L) / 16.0); // temp - a bit wasteful but easier to make sure it's correct (4 bytes in word)
-	else
-	 num_bytes_in_kmer_ceil = 8 * ceil(double(L) / 32.0); // temp - a bit wasteful but easier to make sure it's correct (8 bytes in word)
-
-
-	long last_word_in_kmer = (L-1)%half_word_size+1; 
-	long kmer_ctr=0; // count which unique kmer are we at 
-	long index_ctr=0; // count which index are we at the sequence (non-unique kmer) 
-	struct SeqData *found_hash_ptr;
-	struct SeqData *temp_ptr;
-	long current_idx_in_hash;
-	word current_kmer[MAX_L]; // save one kmer 
-	long debug_prints = 0; 
-	long rand_int2;
-	long add_int = 0; 
-	word ones_mask;
-	if(word_size == 32)
-		ones_mask = 0xFFFFFFFF;
-	else // assume it's 64 
-		ones_mask = 0xFFFFFFFFFFFFFFFF;
-
-	if(debug_prints)
-	{
-		printf("ONES_MASK=%lx\n", ones_mask); 
-		printf("ONES_MASK_DEC=%lu\n", ones_mask); 
-		printf("SIZEOFLONG=%ld (bits)\n", 8*sizeof(long)); 
-		printf("kmer_len=%ld, Num. Words in kmer=%ld, num. bytes=%ld num. bytes to copy=%ld\n", L, num_words_in_kmer, num_bytes_in_kmer, num_bytes_in_kmer_ceil); 
-	}
-
-	long num_seqs_enum = num_seqs;
-	//	printf("Input positions = %ld\n", input_position_flag); 
-	if(input_position_flag)
-	{
-		num_seqs_enum = num_coordinates;
-		if(debug_prints)
-		{
-			for(i=0; i<num_coordinates; i++)
-				printf("Pos %ld=%ld\n", i, kmer_position_inds[i]); 
-
-			printf("Run on %ld Sequences\n", num_seqs_enum); 
-			for(i = 0; i < num_seqs_enum; i++) // loop on all sequences 
-			{
-				printf("Before loop position ind %ld= %ld\n", i, kmer_position_inds[i]);
-				fflush(stdout); 
-			}
-		}
-	}
-
-	for(i = 0; i < num_seqs_enum; i++) // loop on all sequences 
-	{
-		if(debug_prints)
-		{
-			printf("Run on seq %ld\n", i); 
-			fflush(stdout); 
-		}
-		if(input_position_flag)
-		{
-			i_seq = kmer_seq_inds[i]; 
-			num_kmers_enum = 1;
-//			printf("Cur kmer ind: %ld\n", i_seq);
-//			fflush(stdout); 
-
-		}
-		else
-		{
-			i_seq = i;
-			num_kmers_enum = seqs_lens[i]-L+1;
-		}
-		if(debug_prints)
-		{		
-			printf("Cur seq ind: %ld\n", i_seq);
-			fflush(stdout); 
-		}
-		for(j = 0; j < num_kmers_enum; j++) // loop on all possible kmers in a sequence 
-		{
-			if(input_position_flag)
-			{
-				j_position = kmer_position_inds[i]; 
-//							printf("Cur position ind: %ld\n", j_position);
-//								fflush(stdout); 
-			}
-			else
-				j_position = j;
-
-			//			printf("Use words: %lu %lu, kmer_ctr=%ld \n", seqs[i][j/half_word_size], seqs[i][j/half_word_size+1], kmer_ctr);
-			for(k = 0; k < num_words_in_kmer; k++) // full words (get 16 nucleotides each time)
-			{
-				//				printf("run word %ld, i_seq=%ld, j_position=%ld, ind_read=(%ld,%ld,%ld)", k, i_seq, 
-				//					j_position, j_position/half_word_size+k, j_position/half_word_size+1+k); 
-				//				fflush(stdout);
-				current_kmer[k] = ((seqs[i_seq][j_position/half_word_size+k] >> (2*(j_position%half_word_size)))&ones_mask) + 
-					(((seqs[i_seq][j_position/half_word_size+1+k]&((1UL << (2*(j_position%half_word_size)))-1)) << 
-					(2*(half_word_size-(j_position%half_word_size))))&ones_mask); // merge two half words from both adjacent words 
-
-/*				print_packed_dna(&(seqs[i_seq][j_position/half_word_size+k]), 32, 1); 
-				print_packed_dna(&(seqs[i_seq][j_position/half_word_size+1+k]), 32, 1); 
-				
-				printf(" seq[j]=%ld  seq[j+1]=%ld word_kmer=%ld,\n ", seqs[i_seq][j_position/half_word_size+k], seqs[i_seq][j_position/half_word_size+1+k], current_kmer[k]); 
-								fflush(stdout);
-
-*/
-				//				printf("LAST WORD LEN = %ld\n", last_word_in_kmer); 
-				if((k == num_words_in_kmer-1) && (last_word_in_kmer < half_word_size)) 
-				{
-					current_kmer[k] = current_kmer[k]&((1UL << (2*last_word_in_kmer))-1); // take only L nucleotides from last word 
-					//				printf(" Last Word!!!\n"); 
-					//				fflush(stdout);
-				}
-
-				//				kmers[kmer_ctr][k] = kmers[kmer_ctr][k]&((1UL << (2*last_word_in_kmer))-1); // take only L nucleotides
-			}			
-
-			if(debug_prints)
-			{
-				printf("Extracted Kmer: (L=%ld)\n", L); 
-				print_packed_dna(current_kmer, L, 1); // print extracted kmer 
-				fflush(stdout); 
-			}
-
-			if( (!unique_flag) || (!hash_flag) ) // here we just concatenate 
-			{							
-				if(debug_prints)
-				{
-					printf("Problem! Not Unique!\n");
-					fflush(stdout); 
-
-					printf("seq kmer[%ld]=%ld\n", kmer_ctr, i_seq);
-					fflush(stdout);
-					printf("index_ctr=%ld\n", index_ctr); 
-					fflush(stdout);
-					printf("num_bytes_to_copy=%ld\n", num_bytes_in_kmer_ceil); 
-					fflush(stdout);
-				}
-				kmer_kmer_inds[index_ctr] =  kmer_ctr; //  index where kmer is in the list of all kmers 
-				kmer_seq_inds[index_ctr++] = i_seq; // index of species for this kmer
-				memcpy(kmers[kmer_ctr++], current_kmer, num_bytes_in_kmer_ceil); // copy kmer into output list 
-				//				printf("EEExtracted Kmer: (L=%ld)\n", L); 
-				//					print_packed_dna(current_kmer, L, 1); // print extracted kmer 
-				//				fflush(stdout); 
-				/**
-				if(problematic_kmer)					// print kmer again
-				{
-				printf("Put prob. kmer in list place=%ld: \n", kmer_ctr); 						
-				print_packed_dna(kmers[kmer_ctr-1], 32, 1);
-
-				}
-				**/
-
-				//				kmer_seq_inds[kmer_ctr++] = i_seq; // record which sequence did the kmer come from 	(there's only one index here)		kmer_ctr++; 
-			}
-			else // keep a unique list by using Hash 
-			{
-				//					if(debug_prints)
-				//					{
-				//						printf("Find in Hash!!!\n"); 
-				//						fflush(stdout); 
-				//					}
-				if(add_int)
-				{
-					rand_int2 = rand(); 
-					HASH_FIND_INT(hTable, &rand_int2, found_hash_ptr);
-				}
-				else
-					HASH_FIND(hh, hTable, current_kmer, num_bytes_in_kmer, found_hash_ptr);  
-
-				//					found_hash_ptr = NULL; 
-
-				//					if(debug_prints)
-				//					{
-				//						printf("Find in Hash22222\n"); 
-				//						fflush(stdout); 
-				//					}
-				if(found_hash_ptr == NULL) // found a new kmer 
-				{
-					if(i%50 == 0)
-					{
-						if(debug_prints)
-						{
-							printf("Not found in Hash New ID=%ld, seq=%ld pos=%ld, kmer=%ld\n", kmer_ctr, i, j, current_kmer[0]); 
-							fflush(stdout); 
-						}
-					}
-
-					temp_ptr = (struct SeqData *) calloc(1,sizeof(struct SeqData));	
-					memcpy(kmers[kmer_ctr], current_kmer, num_bytes_in_kmer); // copy kmer into output list 
-					memcpy(temp_ptr->seq, current_kmer, num_bytes_in_kmer); // copy kmer into hash table 
-					temp_ptr->seqpos = kmer_ctr; // copy index (what is this?)
-
-					if(add_int)
-					{
-						temp_ptr->rand_int = rand(); 
-						HASH_ADD_INT(hTable, rand_int, temp_ptr); // add value to Hash table 
-					}
-					else
-					{
-						HASH_ADD(hh, hTable, seq, num_bytes_in_kmer, temp_ptr); // add value to Hash table 
-					}
-					kmer_kmer_inds[index_ctr] = kmer_ctr++; // save index of this kmer in the kmers long list
-				}
-				else // kmer already appears in hash table. Just update indices 
-				{	
-					if(i%50 == 0)
-					{
-						if(debug_prints)
-						{
-							printf("Found in Hash Before, seq=%ld pos=%ld, kmer=%ld\n", i, j, current_kmer[0]); 
-							fflush(stdout); 
-							printf("Found in Hash OLD ID=%ld\n", found_hash_ptr->seqpos); 
-							fflush(stdout); 
-						}
-					}
-					kmer_kmer_inds[index_ctr] = found_hash_ptr->seqpos; // index where kmer was found in hash.  save index of this kmer in the kmers long list 
-					//						if(debug_prints)
-					//						{
-					//							printf("Found Hash After\n");
-					//							fflush(stdout); 
-					//						}
-				}
-				kmer_seq_inds[index_ctr++] = i_seq; // save index of species for this kmer 
-			} // end if (non unique or non hash) 
-
-			//			printf("Ind: %ld\n", kmer_inds[kmer_ctr-1]); 
-			//			kmers[kmer_ctr][num_words_in_kmer-1] = // last word may be part 
-			//				seqs[i][j/HALF_WORD_SIZE+1+k]
-		}
-	}
-	/**/
-	if( (!hash_flag) && unique_flag ) // perform sort and unique 
-	{
-
-//		printf("No hashing used \n"); 
-		//		word *tmp_kmers;
-		//		tmp_kmers = new word[kmer_ctr]; 
-		long *tmp_kmer_perm_indices;
-		tmp_kmer_perm_indices = new long[kmer_ctr]; 
-		long *kmer_keep_inds; kmer_keep_inds = new long[kmer_ctr]; 
-
-
-		if(debug_prints)
-		{
-			printf("Before QSort:\n");
-			for(i=0; i<10/*kmer_ctr*/; i++)
-			{
-				printf("\n i=%ld kmer= ", i); 		
-				for(j=0; j<num_words_in_kmer; j++)
-					printf(" %lu, ", kmers[i][j]); 		
-			}
-		}
-		DoQuicksort(kmers, kmer_ctr, num_words_in_kmer, num_bytes_in_kmer, tmp_kmer_perm_indices); // sort the ORIGINAL KMERS 		
-		if(debug_prints)
-		{
-			printf("\n\nAfter QSort:\n");
-			for(i=0; i<kmer_ctr; i++)
-			{
-				//				printf("\n i=%ld kmer= ", i); 		
-				//				for(j=0; j<num_words_in_kmer; j++)
-				//					printf(" %lu, ", kmers[i][j]); 		
-			}
-			printf("LEN WORD USED=%ld\n", num_words_in_kmer);
-		}
-		//		for(i=0; i<kmer_ctr; i++)
-		//			printf("%ld\n", kmers[i][0]); 		
-
-
-		DoOrder(kmer_seq_inds, kmer_ctr, tmp_kmer_perm_indices);
-		delete tmp_kmer_perm_indices;
-		index_ctr = kmer_ctr; 
-		kmer_ctr = -1; // first time this is incremented to zero  
-		for(i=0; i<index_ctr; i++) // now run over all kmers and do unique 
-		{
-			//			printf("i=%ld kmer=%ld. ", i, tmp_kmers[i]); 
-			if((i>0) && (!memcmp(kmers[i], kmers[i-1], num_bytes_in_kmer)))	 // same as previous 
-			{
-				kmer_kmer_inds[i] = kmer_ctr; // index of this kmer in list of all kmers 
-				//				kmer_seq_inds[i] = tmp_kmer_inds[1][i]; // index of species for this kmer 
-				if(debug_prints)
-				{
-					//					printf("Same kmers again!!!!\n"); 
-					//					fflush(stdout); 
-				}
-
-			}
-			else // found a new value 
-			{
-				kmer_ctr++;
-				kmer_keep_inds[kmer_ctr] = i; 
-				//				memcpy(kmers[kmer_ctr], kmers[i], num_bytes_in_kmer); 
-				//				kmers[kmer_ctr][0] = tmp_kmers[i]; // copy new value 
-				kmer_kmer_inds[i] = kmer_ctr; // index of this kmer in list of all kmers 
-				//				kmer_inds[i][1] = tmp_kmer_inds[1][i]; // index of species for this kmer 
-				if(debug_prints)
-				{
-					//					printf("Incrementing kmers!!!!\n"); 
-					//					fflush(stdout); 
-				}
-			}
-		} // finish loop on all kmers
-		kmer_ctr++; // true number of found kmers 
-		//		printf("NUM UNIQUE KMERS IN EXTRACT FUNCTION: %ld\n", kmer_ctr); 
-		for(i=0; i<kmer_ctr; i++) // copy again into same array
-		{
-			if(kmer_keep_inds[i] > i)
-				memcpy(kmers[i], kmers[kmer_keep_inds[i]], num_bytes_in_kmer);
-		}
-
-		delete kmer_keep_inds;
-		//		DoUnique(kmers); 
-	}
-	else
-	{
-		if(debug_prints)
-		{
-			if(hash_flag)
-				printf("Used hash \n"); 
-			else
-				printf("No unique needed \n"); 
-		}
-	}
-	/**/	
-
-
-
-
-	/*
-	for(i=0; i<kmer_ctr; i++)
-	printf("kmer[%ld]=%lu\n", i, kmers[i][0]); 
-	printf("Found %ld unique kmers\n", kmer_ctr);  
-	*/
-
-	num_unique_kmers[0] = kmer_ctr; 
-	num_sparse_matrix_elements[0] = index_ctr;
-
-	delete_all(); // free hash memory 
-	if(hash_flag)
-		HASH_CLEAR(hh,hTable); // free memory 
-
-	return 0; 
-} // end of function extract_sub_kmers
-
-////////////// Temp /////////////////////
-// len is in nucleotides 
-// print_mode: 1 - letters, 0 - just numbers 
-void print_packed_dna(word *seqs, long len, long print_mode)
-{
-	long i, j;
-	word tmp;
-	long half_word_size = 4*sizeof(word);
-	word ones_mask=0xF;
-	if(half_word_size == 32)
-		ones_mask = 0x1F; 
-
-
-	for(i = 0; i < len; i++)
-	{
-		//		printf("\nSeq[i/16]=%ld\n", seqs[i/16]);
-		tmp = seqs[i/half_word_size];
-
-		tmp = tmp >> (2*(i&ones_mask));
-		tmp = tmp&0x3;
-		tmp++;
-
-		//		tmp = ((seqs[i/16] << (2* (i&0xF)))&0x3) + 1;
-
-
-		//		tmp = ((seqs[i/16] >> ((i&0xF)*2))&0x3) + 1;
-		if(print_mode == 0)
-			printf("%lx ", tmp);
-		else
-		{
-			//			printf("%lx ", tmp);
-			switch (tmp)
-			{
-			case 1:
-				printf("A"); break;
-			case 2:
-				printf("C"); break;
-			case 3: 
-				printf("G"); break;
-			case 4:
-				printf("T"); break;
-			}
-		}
-	}
-	printf("\n");
-
-}

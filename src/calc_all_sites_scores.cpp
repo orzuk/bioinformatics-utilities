@@ -7,6 +7,7 @@
 
 #include "mex.h"
 #include "general.h"
+#include "hmm_general.h"
 #include "dna_utils_new.h"
 #include "markov.h"
 

@@ -7,6 +7,7 @@
 
 #include "mex.h"
 #include "general.h"
+#include "hmm_general.h"
 #include "dna_utils_new.h"
 #include "markov.h"
 
@@ -211,71 +212,6 @@ void mexFunction( int nlhs, mxArray *plhs[],
 }
 //#endif // MEX_TO_MATLAB
 
-
-
-
-/**************************************************************************/
-
-/******************************
- * qsort.c                    *
- * quicksort algorithm in C   *
- * Daniel J. Schultz          *
- ******************************/
-
-// inner split routine
-/************
-long split(double *vals, long first, long last, long *indexes);
-long split(double *vals, long first, long last, long *indexes)
-{
-    double    x, temp;
-    long      u, sp, temp_int;
-
-    x  = vals[first];
-    sp = first;
-    for (u = first + 1; u <= last; ++u)
-       if( vals[u] < x)
-	   {
-           sp++;
-           SWAP(vals[u], vals[sp], temp);
-		   SWAP(indexes[u], indexes[sp], temp_int);
-       }
-
-    SWAP(vals[first], vals[sp], temp);
-	SWAP(indexes[first], indexes[sp], temp_int);
-    
-	return(sp);
-}
-
-// recursive quicksort routine
-long quicksort(double *vals, long first, long last, long *indexes);
-long quicksort(double *vals, long first, long last, long *indexes)
-{
-    long     splitpt;
-
-    if (first < last) 
-	{
-       splitpt = split(vals, first, last, indexes);
-       quicksort(vals, first, splitpt - 1, indexes);
-       quicksort(vals, splitpt +1, last, indexes);
-    }
-
-	return 0;
-}
-
-// outer  call for quicksort
-long DoQuicksort(double *vals, long len, long *indexes);
-long DoQuicksort(double *vals, long len, long *indexes)
-{
-	long i;
-
-	for(i = 0; i < len; i++)
-		indexes[i] = i;  // init the indexes 
-		
-	quicksort(vals, 0, len-1, indexes);
-
-	return 0; 
-}
-**************/
 
 
 

@@ -55,8 +55,8 @@ long intervals_intersect(double *intersect_start_pos, double *intersect_end_pos,
 long extract_sub_kmers(long L, word *seqs[MAX_NUM_SEQS], long *seqs_lens, long num_seqs, long unique_flag, 
 					   word *kmers[MAX_L], long *kmer_kmer_inds, long *kmer_seq_inds, long *kmer_position_inds, 					   
 					   long *num_unique_kmers, long *num_sparse_matrix_elements, long hash_flag, 
-						long input_position_flag, long num_coordinates);
-long add_noise_to_kmers(long L, long num_kmers, word *kmers[MAX_L], double noise_table[MAX_L*4][4][4], // X64 
+						long input_position_flag, long num_coordinates, long debug_prints);
+long add_noise_to_kmers(long L, long num_kmers, word *kmers[MAX_L], double noise_table[MAX_L*64][4][4], 
 						word *noisy_kmers[MAX_L]);
 
 

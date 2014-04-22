@@ -9,6 +9,13 @@
 
 #undef DEBUG
 
+// Use only for makefile (remove when using mex!)
+long TOTAL_NUM_SPLITS; 
+long TOTAL_NUM_QSORTS;
+long TOTAL_NUM_SWAPS; 
+long TOTAL_NUM_NO_SWAPS; 
+
+
 
 /////////////////////////////////////////////////////////////////////
 // Matrix multiplication routine 
@@ -164,7 +171,7 @@ long GSolve(double a[MAX_X_VALS][MAX_X_VALS],long n,double x[MAX_X_VALS])
 
 /******************************
  * qsort.c                    *
- * quicksort algorithm in C   *
+ * my_quicksort algorithm in C   *
  * Daniel J. Schultz          *
  ******************************/
 
@@ -257,18 +264,21 @@ long split(word *vals[MAX_L], long first, long last, long len_each_val_in_words,
 		
 		if(smaller_flag)
 	   {
-           sp++;
-//           SWAP(vals[u], vals[sp], temp);
-			SWAP_ARRAYS(vals[u], vals[sp], temp, len_each_val_in_bytes);
-
-		   SWAP(indexes[u], indexes[sp], temp_int); // this still works 
+		    TOTAL_NUM_SWAPS++; 
+			sp++;
+			SWAP_ARRAYS(vals[u], vals[sp], temp, len_each_val_in_bytes); // special function for arrays
+			SWAP(indexes[u], indexes[sp], temp_int); // this still works 
        }
+		else
+			TOTAL_NUM_NO_SWAPS++;
+
 	}
 //    SWAP(vals[first], vals[sp], temp);
+	TOTAL_NUM_SWAPS++;
 	SWAP_ARRAYS(vals[first], vals[sp], temp,  len_each_val_in_bytes);
 	SWAP(indexes[first], indexes[sp], temp_int);    
 
-
+	TOTAL_NUM_SPLITS++; 
 	delete temp;
 
 	return(sp);
@@ -276,99 +286,152 @@ long split(word *vals[MAX_L], long first, long last, long len_each_val_in_words,
 
 
 
-// recursive quicksort routine
-long quicksort(double *vals, long first, long last, long *indexes)
+// New function: compute quantile: 
+// (quite slow because we allocate memory to keep indexes)
+double my_quantile(double *vals, long len, double quantile)
+{
+	if((quantile<0) || (quantile>1))
+	{
+		printf("Error! must supply quantile value between 0 and 1!\n"); 
+		return -9999999999999999.999; 
+	}
+	
+	double *vals_copy = new double[len]; 
+	long *indexes = new long[len];
+
+	memcpy(vals, vals_copy, len*4); // first copy without noise
+
+
+	DoQuicksort(vals_copy, len, indexes); // sort 
+	long i = floor((len-1)*quantile); // set index 	
+	double delta = (len-1)*quantile-double(i);
+
+	double quantile_val = (1 - delta)* vals[i]; 
+	if(i < len-1)
+		quantile_val += delta*vals[i+1]; 	
+
+	delete vals_copy, indexes; 
+	return quantile_val; 
+
+
+	
+}
+
+
+
+// recursive my_quicksort routine
+// outer  call for my_quicksort
+// Input: 
+// vals - array of values 
+// first - first value to sort 
+// len - last value to sort
+//
+// Output: 
+// vals - (changed) sorted values (in ascending order) 
+// indexes - the perumtation used to sort 
+// 
+long my_quicksort(double *vals, long first, long last, long *indexes)
 {
     long     splitpt;
     if (first < last) 
 	{
-       splitpt = split(vals, first, last, indexes);
-       quicksort(vals, first, splitpt - 1, indexes);
-       quicksort(vals, splitpt +1, last, indexes);
+       splitpt = split(vals, first, last, indexes); // get pivot 
+       my_quicksort(vals, first, splitpt - 1, indexes);
+       my_quicksort(vals, splitpt +1, last, indexes);
     }
 	return 0;
 }
 
 
-// recursive quicksort routine: overloaded for float
-long quicksort(float *vals, long first, long last, long *indexes)
+// recursive my_quicksort routine: overloaded for float
+long my_quicksort(float *vals, long first, long last, long *indexes)
 {
     long     splitpt;
     if (first < last) 
 	{
        splitpt = split(vals, first, last, indexes);
-       quicksort(vals, first, splitpt - 1, indexes);
-       quicksort(vals, splitpt +1, last, indexes);
+       my_quicksort(vals, first, splitpt - 1, indexes);
+       my_quicksort(vals, splitpt +1, last, indexes);
     }
 	return 0;
 }
 
-// recursive quicksort routine: overloaded for word
-long quicksort(word *vals, long first, long last, long *indexes)
+// recursive my_quicksort routine: overloaded for word
+long my_quicksort(word *vals, long first, long last, long *indexes)
 {
     long     splitpt;
     if (first < last) 
 	{
        splitpt = split(vals, first, last, indexes);
-       quicksort(vals, first, splitpt - 1, indexes);
-       quicksort(vals, splitpt +1, last, indexes);
+       my_quicksort(vals, first, splitpt - 1, indexes);
+       my_quicksort(vals, splitpt +1, last, indexes);
     }
 	return 0;
 }
 
 
-// recursive quicksort routine: overloaded for 2d array of words
-long quicksort(word *vals[MAX_L], long first, long last, long len_each_val_in_words, long len_each_val_in_bytes, long *indexes)
+// recursive my_quicksort routine: overloaded for 2d array of words
+long my_quicksort(word *vals[MAX_L], long first, long last, long len_each_val_in_words, long len_each_val_in_bytes, long *indexes)
 {
-    long     splitpt;
+	TOTAL_NUM_QSORTS++;
+	long     splitpt;
     if (first < last) 
 	{
        splitpt = split(vals, first, last, len_each_val_in_words, len_each_val_in_bytes, indexes);
-       quicksort(vals, first, splitpt - 1, len_each_val_in_words, len_each_val_in_bytes, indexes);
-       quicksort(vals, splitpt +1, last, len_each_val_in_words, len_each_val_in_bytes, indexes);
+       my_quicksort(vals, first, splitpt - 1, len_each_val_in_words, len_each_val_in_bytes, indexes);
+       my_quicksort(vals, splitpt +1, last, len_each_val_in_words, len_each_val_in_bytes, indexes);
     }
 	return 0;
 }
 
 
-// outer  call for quicksort
+// outer  call for my_quicksort
+// Input: 
+// vals - array of values 
+// len - number of values 
+//
+// Output: 
+// vals - (changed) sorted values (in ascending order) 
+// indexes - the perumtation used to sort 
+// 
 long DoQuicksort(double *vals, long len, long *indexes)
 {
 	long i;
 	for(i = 0; i < len; i++)
 		indexes[i] = i;  // init: indexes are i.d. permutation 		
-	quicksort(vals, 0, len-1, indexes);
+	my_quicksort(vals, 0, len-1, indexes);
 	return 0; 
 }
 
-// outer  call for quicksort: overloaded function for floats 
+// outer  call for my_quicksort: overloaded function for floats 
 long DoQuicksort(float *vals, long len, long *indexes)
 {
 	long i;
 	for(i = 0; i < len; i++)
 		indexes[i] = i;  // init: indexes are i.d. permutation 		
-	quicksort(vals, 0, len-1, indexes);
+	my_quicksort(vals, 0, len-1, indexes);
 	return 0; 
 }
 
-// outer  call for quicksort: overloaded function for word (unsigned long) 
+// outer  call for my_quicksort: overloaded function for word (unsigned long) 
 long DoQuicksort(word *vals, long len, long *indexes)
 {
 	long i;
 	for(i = 0; i < len; i++)
 		indexes[i] = i;  // init: indexes are i.d. permutation 		
-	quicksort(vals, 0, len-1, indexes);
+	my_quicksort(vals, 0, len-1, indexes);
 	return 0; 
 }
 
 
-// outer  call for quicksort: overloaded function for 2d array of words (unsigned long) 
+// outer  call for my_quicksort: overloaded function for 2d array of words (unsigned long) 
 long DoQuicksort(word *vals[MAX_L], long len, long len_each_val_in_words, long len_each_val_in_bytes, long *indexes)
 {
 	long i;
+	TOTAL_NUM_SPLITS=0; TOTAL_NUM_QSORTS=0; TOTAL_NUM_SWAPS=0; TOTAL_NUM_NO_SWAPS=0;
 	for(i = 0; i < len; i++)
 		indexes[i] = i;  // init: indexes are i.d. permutation 		
-	quicksort(vals, 0, len-1, len_each_val_in_words, len_each_val_in_bytes, indexes);
+	my_quicksort(vals, 0, len-1, len_each_val_in_words, len_each_val_in_bytes, indexes);
 	return 0; 
 }
 

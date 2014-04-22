@@ -1,11 +1,12 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <iostream.h>
+//#include <iostream.h>
 #include <time.h>
 #include <math.h>
 #include <string.h>
 
 #include "general.h"
+#include "hmm_chrom_funcs.h"
 #include "dna_utils_new.h"
 #include "markov.h"
 

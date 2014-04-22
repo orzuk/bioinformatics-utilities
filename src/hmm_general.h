@@ -1,6 +1,6 @@
 // File general.h - Macros, prototypes and constant of the HMM package
-#ifndef _GENERAL_H_
-#define _GENERAL_H_
+#ifndef _HMM_GENERAL_H_
+#define _HMM_GENERAL_H_
 
 
 // New types defined 
@@ -46,9 +46,12 @@ typedef unsigned char byte;       // a byte
 #define SWAP_S(addr) \
 	(addr) = ((addr)&0x20) ^ (((addr)&0x1) << 4) ^ (((addr)&0x1E) >> 1);
 
+#ifndef MAX
 #define MAX(x,y) ((x) > (y) ? (x) : (y))
+#endif
+#ifndef MIN
 #define MIN(x,y) ((x) < (y) ? (x) : (y))
-
+#endif
 
 #define ABS(x)  ((x) > 0 ?  (x) : (-(x)))
 
@@ -118,6 +121,8 @@ typedef unsigned char byte;       // a byte
 // Maximal number of genes 
 #define MAX_NUM_SEQS 1000  
 
+
+#ifdef GENE_IN_HMM
 // The gene struct. This contains all the neccessary information needed
 // on the specific gene.
 typedef struct {
@@ -141,7 +146,7 @@ char *accession;
 
 
 } gene;
-
+#endif
 
 #define NUM_BASEPAIRS_PER_HMM_TRANS 250000.0
 
@@ -182,6 +187,7 @@ char *accession;
 #define MAX_STARTING_POINTS 50
 
 
+#ifdef HMM_MODEL_IN_HMM
 // This structure contains all the needed information on the HMM model.
 // Currently Supported : X - discrete (finite states)
 //						 Y - discrete / Mixture of Gaussians
@@ -251,11 +257,11 @@ double M_upperbounds[MAX_X_VALS][MAX_X_VALS];  // Bounds on the transition matri
 long use_bounds;  // Flag saying if to use the bounds on the transition matrix
 
 }  hmm_model;
+#endif
 
 
 
-
-
+#ifdef HMM_data_IN_HMM
 // This structure contains all the data and related things
 typedef struct { 
 
@@ -279,5 +285,6 @@ long *loc_diff_vec;
 
 
 } hmm_data;
+#endif 
 
 #endif

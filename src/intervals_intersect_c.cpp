@@ -7,8 +7,8 @@
 
 #include "mex.h"
 #include "general.h"
-#include "dna_utils_new.h"
 #include "hmm_chrom_funcs.h"
+#include "dna_utils_new.h"
 #include "markov.h"
 
 

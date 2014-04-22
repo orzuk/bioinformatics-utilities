@@ -45,8 +45,8 @@ void mexFunction( int nlhs, mxArray *plhs[],
 	long *kmer_position_inds;
 	long *kmer_seq_inds; // = new long[total_num_kmers]; 
 	long input_position_flag=0; // flag saying 	
-	long debug_prints=1; // set debug printing  
-	double noise_table[MAX_L*4][4][4]; // allow here to have MAX_L*64 nucleotides (=MAX_L or MAX_L*2 words) 
+	long debug_prints=0; // set debug printing  
+	double noise_table[MAX_L*64][4][4]; // allow here to have MAX_L*64 nucleotides (=MAX_L or MAX_L*2 words) 
 
 	/**
 	printf("Start mex function\n");	
@@ -170,11 +170,8 @@ void mexFunction( int nlhs, mxArray *plhs[],
 	//		L, num_seqs, seqs_len, total_num_kmers, kmer_length_in_words, unique_flag);
 
 
-	if(debug_prints)
-	{
-		printf("Now add noise to kmers\n");
-		fflush(stdout);
-	}	
+	//	printf("Extract sub-kmers\n");
+	//	fflush(stdout);
 
 	//	if(input_position_flag)
 	//		return;
@@ -184,20 +181,21 @@ void mexFunction( int nlhs, mxArray *plhs[],
 		noisy_kmers);
 
 
-	if(debug_prints)
-	{
-		printf("Finished add noise to kmers\n");
-		fflush(stdout);
-
-	for(i=0; i<num_kmers; i++) 
-		for(j=0; j<kmer_length_in_words; j++)
-			printf("%ld | %ld | %ld\n", i, j, kmers[i][j]);
-	
-	}	
 
 
 
+	/*
+	for(i=0; i<num_seqs; i++) 
+	for(j=0; j<5; j++)
+	printf("original word = %lu\n", seqs[i][j]);
+	*/
 
+
+	/*
+	for(i=0; i<total_num_kmers; i++) 
+	for(j=0; j<kmer_length_in_words; j++)
+	printf("%ld\n", kmers[i][j]);
+	*/
 
 	//	mwSize mw_dims[2];
 	//	mw_dims[0] = mw_total_num_kmers; mw_dims[1] = mw_kmer_length_in_words;
@@ -262,7 +260,7 @@ void mexFunction( int nlhs, mxArray *plhs[],
 //
 ////////////////////////////////////////////
 
-long add_noise_to_kmers(long L, long num_kmers, word *kmers[MAX_L], double noise_table[MAX_L*4][4][4], 
+long add_noise_to_kmers(long L, long num_kmers, word *kmers[MAX_L], double noise_table[MAX_L*64][4][4], 
 						word *noisy_kmers[MAX_L])
 
 {
@@ -274,9 +272,13 @@ long add_noise_to_kmers(long L, long num_kmers, word *kmers[MAX_L], double noise
 	long num_bytes_in_kmer = ceil(double(L) / 4.0); // temp - a bit wasteful but easier to make sure it's correct 
 	long num_bytes_in_kmer_ceil; //  = 4 * ceil(double(L) / 16.0); // temp - a bit wasteful but easier to make sure it's correct 
 	if(word_size == 32)
+
 		num_bytes_in_kmer_ceil = 4 * ceil(double(L) / 16.0); // temp - a bit wasteful but easier to make sure it's correct (4 bytes in word)
+
 	else
+
 		num_bytes_in_kmer_ceil = 8 * ceil(double(L) / 32.0); // temp - a bit wasteful but easier to make sure it's correct (8 bytes in word)
+
 
 	word cur_nuc;
 	long last_word_in_kmer = (L-1)%half_word_size+1; 
@@ -284,7 +286,7 @@ long add_noise_to_kmers(long L, long num_kmers, word *kmers[MAX_L], double noise
 	long debug_prints=0; 
 	long add_int = 0; 
 	word ones_mask;
-	double cumulative_noise_table[MAX_L*4][4][4]; // multiply by 64
+	double cumulative_noise_table[MAX_L*64][4][4]; 
 
 	double r; // random number 
 	if(word_size == 32)

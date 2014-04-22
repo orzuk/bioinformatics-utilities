@@ -7,6 +7,8 @@
 
 //#include "mex.h"
 #include "general.h"
+#include "hmm_general.h"
+#include "hmm_chrom_funcs.h"
 #include "dna_utils_new.h"
 #include "markov.h"
 
@@ -349,21 +351,15 @@ long read_all_genes(FILE *promoter_f, char *promoter_p, gene *g)
 //			   from a file			   
 //
 /////////////////////////////////////////////
-long read_expression(FILE *expression_f, char *expression_p, gene *g, char labels[MAX_SAMPLES][MAX_NAME_LENGTH] )
+long read_expression(FILE *expression_f, char *expression_p, gene *g, char labels[MAX_SAMPLES][MAX_NAME_LENGTH])
 {
 	long i, j, k;
-
 	char c;
-	
-	
 
 
 	// open the file to enable reading from it
 	expression_f = fopen(expression_p, "r");
-
-
 	printf("Start Reading The expression ...\n");
-
 	c = 'k';
 
 	printf("Start Reading The labels ... \n");
@@ -372,57 +368,41 @@ long read_expression(FILE *expression_f, char *expression_p, gene *g, char label
 	for(i = 0; i < RAMAS_SAMPLES; i++)
 	{
 		j = 0;
-
 		while( int(c) == TAB) 
 		{
 			fscanf(expression_f, "%c", &c);
-
 //			if(i >= RAMAS_SAMPLES-2)
 //				printf("TREAD  %c %d\n", c, int(c));
 		}
-
 		while( (int(c) != TAB) && (int(c) != EOLN) ) // 9 is TAB	10 is EOLN
-
 		{
 	//		if( int(c) == EOLN )
 	//			break;
-			labels[i][j++] = c;
-			
+			labels[i][j++] = c;			
 			fscanf(expression_f, "%c", &c);				
-
 //			if(i >= RAMAS_SAMPLES-2)
 //				printf("RREAD  %c %d\n", c, int(c));
-
 		}
 		labels[i][j] = '\0';
 	}
-
 	printf("Finished Reading The labels  ...\n");
 
 
 
-
-//exit(99);
-
 	c = 'k';
 	for(k = 0; k < EXP_GENES_NUM; k++)
 	{
-
 		// Read the first two fields
 		while( (int(c) == TAB) || (int(c) == EOLN) )
 			fscanf(expression_f, "%c", &c);
-	
-		
 		i = 0;
 		while( int(c) != TAB) // 9 is TAB	
 		{		
 		//	g[genes_num].seq[i] = '\0';
-			g[k].afy_name[i++] = c;
-					
+			g[k].afy_name[i++] = c;					
 			fscanf(expression_f, "%c", &c);				
 		}	
 		g[k].afy_name[i] = '\0';
-
 
 		while( int(c) == TAB) 
 			fscanf(expression_f, "%c", &c);
@@ -430,15 +410,12 @@ long read_expression(FILE *expression_f, char *expression_p, gene *g, char label
 		i = 0;
 		while( int(c) != TAB) // 9 is TAB	
 		{			
-			g[k].symbol[i++] = c;
-					
+			g[k].symbol[i++] = c;					
 			fscanf(expression_f, "%c", &c);				
 		}	
 		g[k].symbol[i] = '\0';
 
-
-
-		// Now read the numbers	
+		// Now read the expression data (numbers)	
 		for(i = 0; i < RAMAS_SAMPLES-2; i++)
 			fscanf(expression_f, "%lf", &(g[k].exp_vec[i]));
 
@@ -1253,7 +1230,7 @@ void read_TF_matrices(FILE *tfname_f, char *tfname_p, FILE *gename_f, char *gena
 
 
 
-// Read the lengthes of the genes
+// Read the lengths of the genes
 void read_lengths(FILE *lengths_f, char *lengths_p, long genes_lengths[L_GENES])
 {
 	long i;
