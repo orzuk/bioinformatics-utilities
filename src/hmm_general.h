@@ -109,7 +109,10 @@ typedef unsigned char byte;       // a byte
 
 #define SLAK_ITERS 50
 
-#define MAX_L 30
+// used to be MAX_L=30
+#ifndef MAX_L
+#define MAX_L 256 
+#endif 
 
 #define L_GENES 235
 

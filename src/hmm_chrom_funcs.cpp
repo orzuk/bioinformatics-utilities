@@ -175,7 +175,7 @@ long GSolve(double a[MAX_X_VALS][MAX_X_VALS],long n,double x[MAX_X_VALS])
  * Daniel J. Schultz          *
  ******************************/
 
-// inner split routine
+// inner split routine for quick-sort 
 long split(double *vals, long first, long last, long *indexes)
 {
     double    x, temp;
@@ -306,9 +306,11 @@ double my_quantile(double *vals, long len, double quantile)
 	long i = floor((len-1)*quantile); // set index 	
 	double delta = (len-1)*quantile-double(i);
 
-	double quantile_val = (1 - delta)* vals[i]; 
+	printf("My Quantile, len=%ld, quantile=%lf\n", len, quantile); 
+	printf("Index=%ld, delta=%lf, vals[%ld]=%lf, vals[%ld]=%lf\n", i, delta, i, vals[i], i+1, vals[i+1]); 
+	double quantile_val = (1 - delta)* vals_copy[i]; 
 	if(i < len-1)
-		quantile_val += delta*vals[i+1]; 	
+		quantile_val += delta*vals_copy[i+1]; 	
 
 	delete vals_copy, indexes; 
 	return quantile_val; 

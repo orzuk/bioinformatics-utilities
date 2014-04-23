@@ -147,7 +147,7 @@ double calc_thresh_prob(long m[4][4][MAX_L], long thresh, long l, double *probs,
 
 	FILE *dist_f;          // distribution file
 	
-	char *dist_p = "score_dist.txt";			// 	distribution file name
+	char *dist_p = (char *)("score_dist.txt");			// 	distribution file name
 
 
 

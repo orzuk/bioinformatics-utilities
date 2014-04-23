@@ -1712,25 +1712,25 @@ int main()
 	FILE *pvalues_f;          // p values for TF's and genes
 	FILE *libipvalues_f;      // p values from libi (assumes only singeltons statistics)
 
-	char *promoter_p = "first_gene.txt";			// 	promoter file name
-	char *human13k_p = "HumanPromoters13K.txt"; //"few_genes.txt";		// promoter file of all 13k human genes name
-	char *expression_p = "new_exp.txt";					// expression file of all genes name
-	char *probs_p = "probs.txt";
-	char *markov_probs_p = "SC_gene_names_markov_1.txt";  
+	char *promoter_p = (char *)("first_gene.txt");			// 	promoter file name
+	char *human13k_p = (char *)("HumanPromoters13K.txt"); //"few_genes.txt";		// promoter file of all 13k human genes name
+	char *expression_p = (char *)("new_exp.txt");					// expression file of all genes name
+	char *probs_p = (char *)("probs.txt");
+	char *markov_probs_p = (char *)("SC_gene_names_markov_1.txt");  
 
-	char *lengths_p = "SC_gene_names_lens.txt";							// lengths of genes 
-	char *tfname_p = "SC_TF_names.txt";          // TF names
-	char *gename_p = "SC_gene_names.txt";          // gene names
+	char *lengths_p = (char *)("SC_gene_names_lens.txt");							// lengths of genes 
+	char *tfname_p = (char *)("SC_TF_names.txt");          // TF names
+	char *gename_p = (char *)("SC_gene_names.txt");          // gene names
 
-	char *libipvalues_p = "get_TFs_p_val_script_SC_gene_names_2_non_uni_1_or_1_4.txt"; 
+	char *libipvalues_p = (char *)("get_TFs_p_val_script_SC_gene_names_2_non_uni_1_or_1_4.txt"); 
 	//"SC_TF_genes_p_values.txt";      // p values from libi (assumes only singeltons statistics)
 
 #ifdef DEBUG
-	char *threshs_p = "SC_genes_scores_indep_1_4.txt";   // scores (log prob) calculated
-	char *pvalues_p = "SC_TF_genes_p_values_DEBUG.txt";   // p values for TF's and genes
+	char *threshs_p = (char *)("SC_genes_scores_indep_1_4.txt");   // scores (log prob) calculated
+	char *pvalues_p = (char *)("SC_TF_genes_p_values_DEBUG.txt");   // p values for TF's and genes
 #else
-	char *threshs_p = "SC_gene_results.txt";   // scores (log prob) calculated
-	char *pvalues_p = "SC_TF_genes_p_values.txt";   // p values for TF's and genes
+	char *threshs_p = (char *)("SC_gene_results.txt");   // scores (log prob) calculated
+	char *pvalues_p = (char *)("SC_TF_genes_p_values.txt");   // p values for TF's and genes
 #endif // DEBUG
 
 	printf("start ,,,\n");
