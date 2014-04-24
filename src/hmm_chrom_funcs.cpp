@@ -290,27 +290,41 @@ long split(word *vals[MAX_L], long first, long last, long len_each_val_in_words,
 // (quite slow because we allocate memory to keep indexes)
 double my_quantile(double *vals, long len, double quantile)
 {
+	long j; 
+
 	if((quantile<0) || (quantile>1))
 	{
 		printf("Error! must supply quantile value between 0 and 1!\n"); 
 		return -9999999999999999.999; 
 	}
+	printf("Before Copy: Min: vals[0]=%lf, Max: vals[%ld]=%lf\n", vals[0], len-1, vals[len-1]); 
 	
 	double *vals_copy = new double[len]; 
 	long *indexes = new long[len];
 
-	memcpy(vals, vals_copy, len*4); // first copy without noise
+	printf("Before Copy2: Min: vals[0]=%lf, Max: vals[%ld]=%lf\n", vals[0], len-1, vals[len-1]); 
+
+
+	memcpy(vals_copy, vals, len*8); // first copy without noise. Double takes 8 (not 4) bytes !!! 
 
 
 	DoQuicksort(vals_copy, len, indexes); // sort 
 	long i = floor((len-1)*quantile); // set index 	
 	double delta = (len-1)*quantile-double(i);
+	
+	printf("PRINT SORTED VALUES:\n"); 
+	for(j=0; j<len; j++)
+		printf("vals_copy[%ld]=%lf\n", j, vals_copy[j]); 
 
-	printf("My Quantile, len=%ld, quantile=%lf\n", len, quantile); 
-	printf("Index=%ld, delta=%lf, vals[%ld]=%lf, vals[%ld]=%lf\n", i, delta, i, vals[i], i+1, vals[i+1]); 
+	
+	printf("My Quantile, len=%ld, quantile=%lf\n", len, quantile);  fflush(stdout); 
+	printf("Min: vals[0]=%lf, Max: vals[%ld]=%lf\n", vals[0], len-1, vals[len-1]); 
+	printf("Min: vals_copy[0]=%lf, Max: vals_copy[%ld]=%lf\n", vals_copy[0], len-1, vals_copy[len-1]); 
+	printf("Index=%ld, delta=%lf, vals_copy[%ld]=%lf, vals_copy[%ld]=%lf\n", i, delta, i, vals_copy[i], i+1, vals_copy[i+1]); fflush(stdout); 
 	double quantile_val = (1 - delta)* vals_copy[i]; 
-	if(i < len-1)
+	if(i < len-1) // not last 
 		quantile_val += delta*vals_copy[i+1]; 	
+	printf("My Quantile output=%lf\n", quantile_val);  fflush(stdout); 
 
 	delete vals_copy, indexes; 
 	return quantile_val; 
